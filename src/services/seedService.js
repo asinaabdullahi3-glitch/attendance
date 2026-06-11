@@ -1,22 +1,22 @@
-import { sampleEmployees, sampleAttendance } from '../data/sampleData';
-import {
-  getEmployees,
-  saveEmployees,
-  getAttendanceRecords,
-  saveAttendanceRecords,
-  isSampleSeeded,
-  markSampleSeeded,
-} from './storageService';
+import { sampleEmployees } from '../data/sampleData';
+import { registerEmployee, getAllEmployees } from './employeeService';
+import { db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { isSampleSeeded, markSampleSeeded } from './storageService';
 
-export function initializeSampleData() {
+const ATTENDANCE_COLLECTION = 'attendance';
+
+export async function initializeSampleData() {
   if (isSampleSeeded()) return;
 
-  if (getEmployees().length === 0) {
-    saveEmployees(sampleEmployees);
-  }
-
-  if (getAttendanceRecords().length === 0) {
-    saveAttendanceRecords(sampleAttendance);
+  // Check if employees exist in Firestore
+  const existingEmployees = await getAllEmployees();
+  
+  if (existingEmployees.length === 0) {
+    // Seed sample employees to Firestore
+    for (const emp of sampleEmployees) {
+      await registerEmployee(emp);
+    }
   }
 
   markSampleSeeded();

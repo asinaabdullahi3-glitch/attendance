@@ -7,7 +7,7 @@ export const STORAGE_KEYS = {
 };
 
 export const ROLES = {
-  EMPLOYEE: 'employee',
+  EMPLOYEE: 'attachee',
   SUPERVISOR: 'supervisor',
 };
 

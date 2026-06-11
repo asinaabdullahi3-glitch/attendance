@@ -36,11 +36,11 @@ export default function App() {
         <Route
           element={<MainLayout requiredRole={ROLES.EMPLOYEE} />}
         >
-          <Route path="/employee/register" element={<EmployeeRegistration />} />
-          <Route path="/employee/attendance" element={<EmployeeAttendance />} />
+          <Route path="/attachee/register" element={<EmployeeRegistration />} />
+          <Route path="/attachee/attendance" element={<EmployeeAttendance />} />
           <Route
-            path="/employee"
-            element={<Navigate to="/employee/attendance" replace />}
+            path="/attachee"
+            element={<Navigate to="/attachee/attendance" replace />}
           />
         </Route>
 

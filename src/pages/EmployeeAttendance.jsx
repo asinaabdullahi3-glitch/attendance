@@ -29,8 +29,9 @@ export default function EmployeeAttendance() {
   const [locationError, setLocationError] = useState('');
   const [checkingLocation, setCheckingLocation] = useState(true);
 
-  const refreshRecord = (phone) => {
-    setTodayRecord(getTodayRecord(phone));
+  const refreshRecord = async (phone) => {
+    const record = await getTodayRecord(phone);
+    setTodayRecord(record);
   };
 
   useEffect(() => {
@@ -97,7 +98,7 @@ export default function EmployeeAttendance() {
     setSuccess('');
     await delay(500);
 
-    const result = checkIn(employee.phone);
+    const result = await checkIn(employee.phone);
     setActionLoading(false);
 
     if (!result.success) {
@@ -105,7 +106,7 @@ export default function EmployeeAttendance() {
       return;
     }
 
-    refreshRecord(employee.phone);
+    await refreshRecord(employee.phone);
     setSuccess(`Checked in successfully at ${result.record.checkIn}.`);
   };
 
@@ -116,7 +117,7 @@ export default function EmployeeAttendance() {
     setSuccess('');
     await delay(500);
 
-    const result = checkOut(employee.phone);
+    const result = await checkOut(employee.phone);
     setActionLoading(false);
 
     if (!result.success) {
@@ -124,7 +125,7 @@ export default function EmployeeAttendance() {
       return;
     }
 
-    refreshRecord(employee.phone);
+    await refreshRecord(employee.phone);
     setSuccess(`Checked out successfully at ${result.record.checkOut}.`);
   };
 
@@ -178,7 +179,7 @@ export default function EmployeeAttendance() {
           {error.includes('not found') && (
             <>
               {' '}
-              <Link to="/employee/register">Register here</Link>
+              <Link to="/attachee/register">Register here</Link>
             </>
           )}
         </Alert>
@@ -261,7 +262,7 @@ export default function EmployeeAttendance() {
       </div>
 
       <p style={{ marginTop: '2rem', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-        New attachee? <Link to="/employee/register">Complete registration</Link>
+        New attachee? <Link to="/attachee/register">Complete registration</Link>
       </p>
     </>
   );

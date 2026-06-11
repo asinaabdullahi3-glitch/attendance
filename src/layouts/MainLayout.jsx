@@ -22,7 +22,7 @@ export default function MainLayout({ requiredRole }) {
   if (requiredRole && role !== requiredRole) {
     return (
       <Navigate
-        to={role === ROLES.SUPERVISOR ? '/supervisor/dashboard' : '/unauthorized'}
+        to={role === ROLES.SUPERVISOR ? '/supervisor/dashboard' : '/attachee/attendance'}
         replace
       />
     );

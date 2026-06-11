@@ -1,21 +1,61 @@
 import { ATTENDANCE_STATUS } from '../data/constants';
 import { formatTime, getTodayDateString, isSameMonth } from '../utils/dateUtils';
 import { getEmployeeName, getAllEmployees } from './employeeService';
-import { getAttendanceRecords, saveAttendanceRecords } from './storageService';
+import { db } from '../firebase';
+import { collection, doc, getDoc, getDocs, query, where, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 
-export function getTodayRecord(phone) {
-  const today = getTodayDateString();
-  return getAttendanceRecords().find(
-    (r) => r.phone === phone && r.date === today
-  );
+const ATTENDANCE_COLLECTION = 'attendance';
+
+// Migration function to move localStorage data to Firestore
+export async function migrateLocalStorageToFirestore() {
+  try {
+    const localStorageData = localStorage.getItem('at_attendance');
+    if (!localStorageData) return { success: false, message: 'No localStorage data found' };
+    
+    const records = JSON.parse(localStorageData);
+    console.log(`Found ${records.length} records in localStorage, migrating to Firestore...`);
+    
+    let migrated = 0;
+    for (const record of records) {
+      if (record.checkIn) {
+        const docRef = doc(db, ATTENDANCE_COLLECTION, `${record.phone}_${record.date}`);
+        await setDoc(docRef, {
+          phone: record.phone,
+          date: record.date,
+          checkIn: record.checkIn,
+          checkOut: record.checkOut || null,
+          status: ATTENDANCE_STATUS.PRESENT,
+          createdAt: new Date().toISOString(),
+        });
+        migrated++;
+      }
+    }
+    
+    console.log(`Migrated ${migrated} records to Firestore`);
+    return { success: true, message: `Migrated ${migrated} records to Firestore` };
+  } catch (error) {
+    console.error('Migration error:', error);
+    return { success: false, message: 'Migration failed: ' + error.message };
+  }
 }
 
-export function checkIn(phone) {
+export async function getTodayRecord(phone) {
   const today = getTodayDateString();
-  const records = getAttendanceRecords();
-  const existing = records.find((r) => r.phone === phone && r.date === today);
+  const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return docSnap.data();
+  }
+  return null;
+}
 
-  if (existing?.checkIn) {
+export async function checkIn(phone) {
+  const today = getTodayDateString();
+  const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists() && docSnap.data().checkIn) {
     return { success: false, error: 'You have already checked in today' };
   }
 
@@ -25,47 +65,62 @@ export function checkIn(phone) {
     checkIn: formatTime(),
     checkOut: null,
     status: ATTENDANCE_STATUS.PRESENT,
+    createdAt: new Date().toISOString(),
   };
 
-  saveAttendanceRecords([...records, record]);
-  return { success: true, record };
+  try {
+    await setDoc(docRef, record);
+    return { success: true, record };
+  } catch (error) {
+    console.error('Error checking in:', error);
+    return { success: false, error: 'Failed to check in. Please try again.' };
+  }
 }
 
-export function checkOut(phone) {
+export async function checkOut(phone) {
   const today = getTodayDateString();
-  const records = getAttendanceRecords();
-  const existing = records.find((r) => r.phone === phone && r.date === today);
+  const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
+  const docSnap = await getDoc(docRef);
 
-  if (!existing?.checkIn) {
+  if (!docSnap.exists() || !docSnap.data().checkIn) {
     return { success: false, error: 'You must check in before checking out' };
   }
 
-  if (existing.checkOut) {
+  if (docSnap.data().checkOut) {
     return { success: false, error: 'You have already checked out today' };
   }
 
-  const updated = records.map((r) =>
-    r.phone === phone && r.date === today
-      ? { ...r, checkOut: formatTime(), status: ATTENDANCE_STATUS.PRESENT }
-      : r
-  );
-
-  saveAttendanceRecords(updated);
-  return {
-    success: true,
-    record: updated.find((r) => r.phone === phone && r.date === today),
+  const updated = {
+    ...docSnap.data(),
+    checkOut: formatTime(),
+    status: ATTENDANCE_STATUS.PRESENT,
+    updatedAt: new Date().toISOString(),
   };
+
+  try {
+    await setDoc(docRef, updated);
+    return { success: true, record: updated };
+  } catch (error) {
+    console.error('Error checking out:', error);
+    return { success: false, error: 'Failed to check out. Please try again.' };
+  }
 }
 
 export async function getDashboardStats() {
   const employees = await getAllEmployees();
   const today = getTodayDateString();
-  const records = getAttendanceRecords();
-  const presentPhones = new Set(
-    records
-      .filter((r) => r.date === today && r.checkIn)
-      .map((r) => r.phone)
-  );
+  
+  // Query Firestore for today's attendance records
+  const q = query(collection(db, ATTENDANCE_COLLECTION), where('date', '==', today));
+  const querySnapshot = await getDocs(q);
+  
+  const presentPhones = new Set();
+  querySnapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data.checkIn) {
+      presentPhones.add(data.phone);
+    }
+  });
 
   return {
     totalEmployees: employees.length,
@@ -76,41 +131,42 @@ export async function getDashboardStats() {
 
 export async function buildMonthlyAttendanceTable(month, year, searchQuery = '') {
   const employees = await getAllEmployees();
-  const records = getAttendanceRecords();
   const query = searchQuery.trim().toLowerCase();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const rows = [];
 
-  employees.forEach((emp) => {
-    for (let day = 1; day <= daysInMonth; day += 1) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      if (!isSameMonth(dateStr, month, year)) continue;
+  try {
+    // Get ALL attendance records from Firestore (no date filter for now)
+    const querySnapshot = await getDocs(collection(db, ATTENDANCE_COLLECTION));
+    
+    const records = [];
+    querySnapshot.forEach((doc) => {
+      records.push(doc.data());
+    });
 
-      const record = records.find(
-        (r) => r.phone === emp.phone && r.date === dateStr
-      );
+    console.log('Total attendance records:', records.length);
+    console.log('Employees:', employees.length);
 
-      if (record?.checkIn) {
-        rows.push({
-          phone: emp.phone,
-          employeeName: emp.fullName,
-          date: dateStr,
-          checkIn: record.checkIn,
-          checkOut: record.checkOut || '—',
-          status: ATTENDANCE_STATUS.PRESENT,
-        });
-      } else {
-        rows.push({
-          phone: emp.phone,
-          employeeName: emp.fullName,
-          date: dateStr,
-          checkIn: '—',
-          checkOut: '—',
-          status: ATTENDANCE_STATUS.ABSENT,
-        });
+    // Only create rows for present records
+    records.forEach((record) => {
+      if (record.checkIn) {
+        const emp = employees.find((e) => e.phone === record.phone);
+        if (emp) {
+          rows.push({
+            phone: emp.phone,
+            employeeName: emp.fullName,
+            date: record.date,
+            checkIn: record.checkIn,
+            checkOut: record.checkOut || '—',
+            status: ATTENDANCE_STATUS.PRESENT,
+          });
+        }
       }
-    }
-  });
+    });
+  } catch (error) {
+    console.error('Error building attendance table:', error);
+    return [];
+  }
 
   const sorted = rows.sort((a, b) => {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
@@ -291,9 +347,10 @@ export function generateAttendanceReport(rows, month, year) {
 }
 
 /**
- * Get present records for report
+ * Get present records for report (only those who checked in)
  */
 export async function getPresentRecords(month, year) {
   const tableRows = await buildMonthlyAttendanceTable(month, year);
-  return tableRows.filter((row) => row.status === ATTENDANCE_STATUS.PRESENT);
+  // Filter to only show records where attachee checked in (has checkIn time)
+  return tableRows.filter((row) => row.checkIn && row.checkIn !== '—');
 }

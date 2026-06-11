@@ -18,7 +18,7 @@ export default function LoginSelection() {
     setSessionRole(role);
 
     if (role === ROLES.EMPLOYEE) {
-      navigate('/employee/attendance');
+      navigate('/attachee/attendance');
     } else {
       setShowPasswordModal(true);
       setAuthError('');

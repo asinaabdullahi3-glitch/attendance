@@ -11,7 +11,7 @@ import {
   getPresentRecords,
 } from '../services/attendanceService';
 import { changeAdminPassword } from '../services/authService';
-import { getCurrentMonthYear } from '../utils/dateUtils';
+import { getCurrentMonthYear, getTodayDateString } from '../utils/dateUtils';
 import { useChangePassword } from '../layouts/MainLayout';
 import { getSessionSupervisorName } from '../services/storageService';
 
@@ -33,13 +33,20 @@ export default function SupervisorDashboard() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      const [statsData, rowsData] = await Promise.all([
-        getDashboardStats(),
-        buildMonthlyAttendanceTable(month, year, search),
-      ]);
-      setStats(statsData);
-      setTableRows(rowsData);
-      setLoading(false);
+      try {
+        const [statsData, rowsData] = await Promise.all([
+          getDashboardStats(),
+          buildMonthlyAttendanceTable(month, year, search),
+        ]);
+        setStats(statsData);
+        setTableRows(rowsData);
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+        setStats({ totalEmployees: 0, presentToday: 0, absentToday: 0 });
+        setTableRows([]);
+      } finally {
+        setLoading(false);
+      }
     };
     loadData();
   }, [month, year, search]);
@@ -87,11 +94,6 @@ export default function SupervisorDashboard() {
           value={stats.presentToday}
           variant="success"
         />
-        <DashboardCard
-          label="Absent Today"
-          value={stats.absentToday}
-          variant="danger"
-        />
       </div>
 
       <section className="table-section">
@@ -101,7 +103,7 @@ export default function SupervisorDashboard() {
               Monthly Attendance — {MONTH_NAMES[month]} {year}
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-              {presentRows.length} check-in record(s) this month · Sample: John Doe 01/06/2026
+              {presentRows.length} check-in record(s) this month
             </p>
           </div>
           <div className="table-filters">
@@ -118,13 +120,6 @@ export default function SupervisorDashboard() {
               onClick={() => setStatusFilter('Present')}
             >
               Present
-            </button>
-            <button
-              type="button"
-              className={`filter-chip ${statusFilter === 'Absent' ? 'filter-chip--active' : ''}`}
-              onClick={() => setStatusFilter('Absent')}
-            >
-              Absent
             </button>
           </div>
         </div>

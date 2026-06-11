@@ -3,8 +3,8 @@ import { ROLES } from '../data/constants';
 import { clearSessionRole, clearSessionPhone } from '../services/storageService';
 
 const employeeLinks = [
-  { to: '/employee/attendance', label: 'Attendance', icon: '⏱' },
-  { to: '/employee/register', label: 'Registration', icon: '📝' },
+  { to: '/attachee/attendance', label: 'Attendance', icon: '⏱' },
+  { to: '/attachee/register', label: 'Registration', icon: '📝' },
 ];
 
 const supervisorLinks = [
