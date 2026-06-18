@@ -1,6 +1,6 @@
 import { formatDisplayDate } from '../utils/dateUtils';
 
-export default function AttendanceTable({ rows, statusFilter }) {
+export default function AttendanceTable({ rows, statusFilter, cutoffTime, onRowClick }) {
   const filtered = statusFilter
     ? rows.filter((row) => row.status === statusFilter)
     : rows;
@@ -28,7 +28,18 @@ export default function AttendanceTable({ rows, statusFilter }) {
         <tbody>
           {filtered.map((row) => (
             <tr key={`${row.phone}-${row.date}`}>
-              <td>{row.employeeName}</td>
+              <td>
+                {onRowClick ? (
+                  <button
+                    className="table-name-link"
+                    onClick={() => onRowClick(row.phone)}
+                  >
+                    {row.employeeName}
+                  </button>
+                ) : (
+                  row.employeeName
+                )}
+              </td>
               <td>{formatDisplayDate(row.date)}</td>
               <td>{row.checkIn}</td>
               <td>{row.checkOut}</td>
@@ -40,6 +51,14 @@ export default function AttendanceTable({ rows, statusFilter }) {
                 >
                   {row.status}
                 </span>
+                {row.punctuality === 'Late' && (
+                  <span
+                    className="status-badge status-badge--late"
+                    style={{ marginLeft: '0.4rem' }}
+                  >
+                    Late
+                  </span>
+                )}
               </td>
             </tr>
           ))}

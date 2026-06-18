@@ -6,6 +6,7 @@ import MainLayout from './layouts/MainLayout';
 import EmployeeAttendance from './pages/EmployeeAttendance';
 import EmployeeRegistration from './pages/EmployeeRegistration';
 import LoginSelection from './pages/LoginSelection';
+import AttendeeProfile from './pages/AttendeeProfile';
 import SupervisorDashboard from './pages/SupervisorDashboard';
 import Unauthorized from './pages/Unauthorized';
 import { initializeSampleData } from './services/seedService';
@@ -51,6 +52,7 @@ export default function App() {
             path="/supervisor/dashboard"
             element={<SupervisorDashboard />}
           />
+          <Route path="/supervisor/attachee/:phone" element={<AttendeeProfile />} />
           <Route
             path="/supervisor"
             element={<Navigate to="/supervisor/dashboard" replace />}

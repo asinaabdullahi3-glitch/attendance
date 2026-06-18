@@ -1,10 +1,41 @@
-import { ATTENDANCE_STATUS } from '../data/constants';
-import { formatTime, getTodayDateString, isSameMonth } from '../utils/dateUtils';
+import { ATTENDANCE_STATUS, DEFAULT_CUTOFF_TIME } from '../data/constants';
+import { formatTime, getTodayDateString, isSameMonth, parseTimeToMinutes } from '../utils/dateUtils';
 import { getEmployeeName, getAllEmployees } from './employeeService';
 import { db } from '../firebase';
 import { collection, doc, getDoc, getDocs, query, where, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 
 const ATTENDANCE_COLLECTION = 'attendance';
+
+/**
+ * Classify an employee's punctuality based on their check-in time and a cutoff.
+ *
+ * @param {string|null|undefined} checkInTime - e.g. "09:23 AM"
+ * @param {string|null|undefined} cutoffTime  - e.g. "09:00 AM"; falls back to DEFAULT_CUTOFF_TIME
+ * @returns {"Absent"|"On Time"|"Late"}
+ */
+export function classifyPunctuality(checkInTime, cutoffTime) {
+  if (!checkInTime) return 'Absent';
+  const resolvedCutoff = cutoffTime || DEFAULT_CUTOFF_TIME;
+  const checkInMinutes = parseTimeToMinutes(checkInTime);
+  const cutoffMinutes = parseTimeToMinutes(resolvedCutoff);
+  return checkInMinutes <= cutoffMinutes ? 'On Time' : 'Late';
+}
+
+/**
+ * Fetch all attendance records for a given phone number, sorted by date descending.
+ *
+ * @param {string} phone
+ * @returns {Promise<Object[]>}
+ */
+export async function getAttendanceByPhone(phone) {
+  const q = query(
+    collection(db, ATTENDANCE_COLLECTION),
+    where('phone', '==', phone)
+  );
+  const snap = await getDocs(q);
+  const records = snap.docs.map(d => d.data());
+  return records.sort((a, b) => b.date.localeCompare(a.date));
+}
 
 // Migration function to move localStorage data to Firestore
 export async function migrateLocalStorageToFirestore() {
@@ -129,7 +160,7 @@ export async function getDashboardStats() {
   };
 }
 
-export async function buildMonthlyAttendanceTable(month, year, searchQuery = '') {
+export async function buildMonthlyAttendanceTable(month, year, searchQuery = '', cutoffTime = DEFAULT_CUTOFF_TIME) {
   const employees = await getAllEmployees();
   const query = searchQuery.trim().toLowerCase();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -159,6 +190,7 @@ export async function buildMonthlyAttendanceTable(month, year, searchQuery = '')
             checkIn: record.checkIn,
             checkOut: record.checkOut || '—',
             status: ATTENDANCE_STATUS.PRESENT,
+            punctuality: classifyPunctuality(record.checkIn, cutoffTime),
           });
         }
       }
@@ -183,167 +215,137 @@ export async function buildMonthlyAttendanceTable(month, year, searchQuery = '')
 }
 
 /**
- * Generate Word document report of attendance records
+ * Generate a well-formatted Word document report of attendance records.
+ * Uses real data only — no hardcoded names or departments.
  */
 export function generateAttendanceReport(rows, month, year) {
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                       'July', 'August', 'September', 'October', 'November', 'December'];
-  
-  // Format date to readable format (e.g., "2026-06-10" -> "10/06/2026")
+
   const formatDate = (dateStr) => {
-    const dateParts = dateStr.split('-');
-    return `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
   };
 
-  // Create HTML content for Word document
-  let htmlContent = `
-    <html xmlns:o='urn:schemas-microsoft-com:office:office' 
-          xmlns:w='urn:schemas-microsoft-com:office:word'
-          xmlns='http://www.w3.org/TR/REC-html40'>
-    <head>
-      <meta charset="utf-8">
-      <meta name=ProgId content=Word.Document>
-      <meta name=Generator content="Microsoft Word">
-      <meta name=Originator content="Microsoft Word">
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-          font-family: 'Times New Roman', 'Arial', serif;
-          font-size: 12pt;
-          line-height: 1.5;
-          margin: 1in;
-          color: #000000;
-        }
-        .header {
-          text-align: center;
-          margin-bottom: 30px;
-          border-bottom: 2px solid #000000;
-          padding-bottom: 15px;
-        }
-        .header h1 {
-          font-size: 24pt;
-          font-weight: bold;
-          color: #000000;
-          margin-bottom: 5px;
-        }
-        .header p {
-          font-size: 12pt;
-          color: #666666;
-        }
-        .info-section {
-          margin-bottom: 25px;
-          padding: 15px;
-          background-color: #f5f5f5;
-          border: 1px solid #cccccc;
-        }
-        .info-section p {
-          margin: 5px 0;
-          font-size: 12pt;
-        }
-        .info-section strong {
-          font-weight: bold;
-        }
-        .table-title {
-          font-size: 16pt;
-          font-weight: bold;
-          margin-bottom: 15px;
-          color: #000000;
-        }
-        table {
-          border-collapse: collapse;
-          width: 100%;
-          margin-bottom: 20px;
-        }
-        th {
-          background-color: #4472C4;
-          color: white;
-          font-weight: bold;
-          font-size: 12pt;
-          padding: 10px;
-          border: 1px solid #4472C4;
-          text-align: center;
-        }
-        td {
-          padding: 10px;
-          border: 1px solid #cccccc;
-          font-size: 12pt;
-          text-align: center;
-        }
-        tr:nth-child(even) {
-          background-color: #f9f9f9;
-        }
-        tr:hover {
-          background-color: #e8e8e8;
-        }
-        .footer {
-          margin-top: 30px;
-          padding-top: 15px;
-          border-top: 1px solid #cccccc;
-          text-align: center;
-          font-size: 10pt;
-          color: #666666;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Attendance Report</h1>
-        <p>${monthNames[month]} ${year}</p>
-      </div>
-      
-      <div class="info-section">
-        <p><strong>Total Records:</strong> ${rows.length}</p>
-        <p><strong>Report Generated:</strong> ${new Date().toLocaleString()}</p>
-      </div>
+  // Summary stats
+  const onTimeCount = rows.filter(r => classifyPunctuality(r.checkIn, DEFAULT_CUTOFF_TIME) === 'On Time').length;
+  const lateCount   = rows.filter(r => classifyPunctuality(r.checkIn, DEFAULT_CUTOFF_TIME) === 'Late').length;
 
-      <div class="table-title">Attendance Details</div>
-      <table>
-        <thead>
-          <tr>
-            <th width="20%">Date</th>
-            <th width="40%">Name</th>
-            <th width="20%">Check In</th>
-            <th width="20%">Check Out</th>
-          </tr>
-        </thead>
-        <tbody>
-  `;
-
-  rows.forEach((row) => {
-    htmlContent += `
-          <tr>
-            <td>${formatDate(row.date)}</td>
-            <td>${row.employeeName}</td>
-            <td>${row.checkIn}</td>
-            <td>${row.checkOut}</td>
-          </tr>
-    `;
+  // Build table rows HTML — use inline background for Word compatibility
+  let tableRows = '';
+  rows.forEach((row, i) => {
+    const punctuality = classifyPunctuality(row.checkIn, DEFAULT_CUTOFF_TIME);
+    const rowBg = i % 2 === 0 ? '#ffffff' : '#f7f7f7';
+    const punctualityColor = punctuality === 'Late' ? '#c05c00' : '#166534';
+    const punctualityBg   = punctuality === 'Late' ? '#fff3cd' : '#d4edda';
+    tableRows += `
+      <tr style="background-color: ${rowBg};">
+        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center;">${formatDate(row.date)}</td>
+        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt;">${row.employeeName}</td>
+        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center;">${row.checkIn}</td>
+        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center;">${row.checkOut}</td>
+        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center;">
+          <span style="background-color: ${punctualityBg}; color: ${punctualityColor}; padding: 2px 10px; border-radius: 12px; font-weight: 600; font-size: 10pt;">
+            ${punctuality}
+          </span>
+        </td>
+      </tr>`;
   });
 
-  htmlContent += `
-        </tbody>
-      </table>
-      
-      <div class="footer">
-        <p>End of Report</p>
-      </div>
-    </body>
-    </html>
-  `;
+  const htmlContent = `
+<html xmlns:o='urn:schemas-microsoft-com:office:office'
+      xmlns:w='urn:schemas-microsoft-com:office:word'
+      xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset="utf-8">
+  <meta name=ProgId content=Word.Document>
+  <meta name=Generator content="Microsoft Word">
+  <meta name=Originator content="Microsoft Word">
+</head>
+<body style="font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1a1a1a; margin: 0; padding: 0;">
 
-  // Create blob and download
-  const blob = new Blob(['\ufeff', htmlContent], { 
-    type: 'application/msword' 
-  });
+  <!-- Cover band -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 0;">
+    <tr>
+      <td style="background-color: #7c2d12; padding: 32px 40px;">
+        <p style="margin: 0; font-size: 22pt; font-weight: 700; color: #ffffff; letter-spacing: 0.5px;">
+          Attachee Attendance Report
+        </p>
+        <p style="margin: 6px 0 0; font-size: 12pt; color: #fca49a;">
+          ${monthNames[month]} ${year}
+        </p>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Summary strip -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 28px;">
+    <tr>
+      <td style="background-color: #fff8f0; border-bottom: 2px solid #c2410c; padding: 14px 40px;">
+        <table cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="padding-right: 40px;">
+              <p style="margin: 0; font-size: 9pt; color: #7c2d12; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">Total Check-Ins</p>
+              <p style="margin: 2px 0 0; font-size: 18pt; font-weight: 700; color: #1a1a1a;">${rows.length}</p>
+            </td>
+            <td style="padding-right: 40px;">
+              <p style="margin: 0; font-size: 9pt; color: #7c2d12; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">On Time</p>
+              <p style="margin: 2px 0 0; font-size: 18pt; font-weight: 700; color: #166534;">${onTimeCount}</p>
+            </td>
+            <td style="padding-right: 40px;">
+              <p style="margin: 0; font-size: 9pt; color: #7c2d12; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">Late</p>
+              <p style="margin: 2px 0 0; font-size: 18pt; font-weight: 700; color: #c05c00;">${lateCount}</p>
+            </td>
+            <td>
+              <p style="margin: 0; font-size: 9pt; color: #7c2d12; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">Generated</p>
+              <p style="margin: 2px 0 0; font-size: 10pt; font-weight: 600; color: #1a1a1a;">${new Date().toLocaleString()}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Attendance table -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 32px; border-collapse: collapse;">
+    <thead>
+      <tr style="background-color: #7c2d12;">
+        <th style="padding: 11px 12px; text-align: center; color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 13%;">DATE</th>
+        <th style="padding: 11px 12px; text-align: left;   color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 35%;">ATTACHEE NAME</th>
+        <th style="padding: 11px 12px; text-align: center; color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 16%;">CHECK-IN</th>
+        <th style="padding: 11px 12px; text-align: center; color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 16%;">CHECK-OUT</th>
+        <th style="padding: 11px 12px; text-align: center; color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 20%;">PUNCTUALITY</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.length === 0
+        ? `<tr><td colspan="5" style="padding: 24px; text-align: center; color: #888; font-size: 11pt; border: 1px solid #dee2e6;">No attendance records for this period.</td></tr>`
+        : tableRows}
+    </tbody>
+  </table>
+
+  <!-- Footer -->
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="border-top: 1px solid #dee2e6; padding-top: 12px; text-align: center; color: #888; font-size: 9pt;">
+        Attachee Attendance System &nbsp;·&nbsp; ${monthNames[month]} ${year} Report &nbsp;·&nbsp; Confidential
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`;
+
+  const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
-  
   link.setAttribute('href', url);
-  link.setAttribute('download', `attendance_report_${year}_${month + 1}.doc`);
+  link.setAttribute('download', `attendance_report_${year}_${String(month + 1).padStart(2, '0')}.doc`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 /**

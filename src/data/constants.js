@@ -15,3 +15,5 @@ export const ATTENDANCE_STATUS = {
   PRESENT: 'Present',
   ABSENT: 'Absent',
 };
+
+export const DEFAULT_CUTOFF_TIME = '09:00 AM';
