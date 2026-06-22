@@ -149,7 +149,7 @@ export default function EmployeeAttendance() {
           {locationError}
         </Alert>
         <p style={{ marginTop: '2rem', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-          Please ensure you are connected to the office WiFi network.
+          Please ensure you are connected to the Hub WiFi network.
         </p>
       </>
     );

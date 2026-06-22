@@ -895,3 +895,164 @@
   background: var(--color-primary-hover);
   box-shadow: 0 4px 12px rgba(194, 65, 12, 0.35);
 }
+
+/* Analytics section grid (replaces old two-column chart layout) */
+.analytics-section__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+.analytics-chart-card__sub {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0.15rem 0 1rem;
+}
+
+/* Scrollable card for daily breakdown on small screens */
+.analytics-chart-card--scroll {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* Daily breakdown list */
+.daily-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.daily-breakdown__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.daily-breakdown__date {
+  display: flex;
+  flex-direction: column;
+  min-width: 64px;
+}
+
+.daily-breakdown__day-name {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.daily-breakdown__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.daily-breakdown__bar-wrap {
+  flex: 1;
+  height: 8px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.daily-breakdown__bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+  border-radius: 99px;
+  min-width: 4px;
+  transition: width 0.4s ease;
+}
+
+.daily-breakdown__count {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 70px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Punctuality summary pills */
+.punctuality-pills {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.punctuality-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.punctuality-pill--on-time {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.punctuality-pill--late {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Grouped attendance by date */
+.grouped-attendance {
+  display: flex;
+  flex-direction: column;
+}
+
+.attendance-day-group {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.attendance-day-group:last-child {
+  border-bottom: none;
+}
+
+.attendance-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  gap: 1rem;
+}
+
+.attendance-day-header__left {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.attendance-day-header__weekday {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.attendance-day-header__date {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.attendance-day-header__badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--color-primary);
+  color: white;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}

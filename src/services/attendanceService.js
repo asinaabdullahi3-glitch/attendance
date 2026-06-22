@@ -186,6 +186,7 @@ export async function buildMonthlyAttendanceTable(month, year, searchQuery = '',
           rows.push({
             phone: emp.phone,
             employeeName: emp.fullName,
+            department: emp.department,
             date: record.date,
             checkIn: record.checkIn,
             checkOut: record.checkOut || '—',
@@ -215,42 +216,90 @@ export async function buildMonthlyAttendanceTable(month, year, searchQuery = '',
 }
 
 /**
- * Generate a well-formatted Word document report of attendance records.
- * Uses real data only — no hardcoded names or departments.
+ * Generate a well-formatted Word document report of attendance records,
+ * grouped by date — each date gets its own section header and table.
  */
 export function generateAttendanceReport(rows, month, year) {
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                      'July', 'August', 'September', 'October', 'November', 'December'];
-
-  const formatDate = (dateStr) => {
-    const [y, m, d] = dateStr.split('-');
-    return `${d}/${m}/${y}`;
-  };
+  const monthNames = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+  const dayNames   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
   // Summary stats
   const onTimeCount = rows.filter(r => classifyPunctuality(r.checkIn, DEFAULT_CUTOFF_TIME) === 'On Time').length;
   const lateCount   = rows.filter(r => classifyPunctuality(r.checkIn, DEFAULT_CUTOFF_TIME) === 'Late').length;
 
-  // Build table rows HTML — use inline background for Word compatibility
-  let tableRows = '';
-  rows.forEach((row, i) => {
-    const punctuality = classifyPunctuality(row.checkIn, DEFAULT_CUTOFF_TIME);
-    const rowBg = i % 2 === 0 ? '#ffffff' : '#f7f7f7';
-    const punctualityColor = punctuality === 'Late' ? '#c05c00' : '#166534';
-    const punctualityBg   = punctuality === 'Late' ? '#fff3cd' : '#d4edda';
-    tableRows += `
-      <tr style="background-color: ${rowBg};">
-        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center;">${formatDate(row.date)}</td>
-        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt;">${row.employeeName}</td>
-        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center;">${row.checkIn}</td>
-        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center;">${row.checkOut}</td>
-        <td style="padding: 9px 12px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center;">
-          <span style="background-color: ${punctualityBg}; color: ${punctualityColor}; padding: 2px 10px; border-radius: 12px; font-weight: 600; font-size: 10pt;">
-            ${punctuality}
-          </span>
-        </td>
-      </tr>`;
+  // Group rows by date (already sorted date-desc from service; keep that order)
+  const groupMap = {};
+  const groupOrder = [];
+  rows.forEach(row => {
+    if (!groupMap[row.date]) {
+      groupMap[row.date] = [];
+      groupOrder.push(row.date);
+    }
+    groupMap[row.date].push(row);
   });
+
+  // Build one section per date
+  let dateSections = '';
+
+  if (rows.length === 0) {
+    dateSections = `
+      <tr><td colspan="4" style="padding: 24px; text-align: center; color: #888; font-size: 11pt; border: 1px solid #dee2e6;">
+        No attendance records for this period.
+      </td></tr>`;
+  } else {
+    groupOrder.forEach(date => {
+      const [y, m, d] = date.split('-');
+      const jsDate  = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+      const weekday = dayNames[jsDate.getDay()];
+      const label   = `${weekday}, ${parseInt(d)} ${monthNames[parseInt(m) - 1]} ${y}`;
+      const group   = groupMap[date];
+
+      // Date section header row
+      dateSections += `
+        <tr>
+          <td colspan="4" style="
+            background-color: #7c2d12;
+            padding: 9px 14px;
+            font-size: 10pt;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.03em;
+            border: 1px solid #6b2410;">
+            ${label}
+            <span style="margin-left: 12px; background-color: rgba(255,255,255,0.2);
+              padding: 1px 8px; border-radius: 10px; font-size: 9pt; font-weight: 600;">
+              ${group.length} ${group.length === 1 ? 'person' : 'people'}
+            </span>
+          </td>
+        </tr>`;
+
+      // Rows for this date
+      group.forEach((row, i) => {
+        const punctuality      = classifyPunctuality(row.checkIn, DEFAULT_CUTOFF_TIME);
+        const rowBg            = i % 2 === 0 ? '#ffffff' : '#f7f7f7';
+        const punctualityColor = punctuality === 'Late' ? '#c05c00' : '#166534';
+        const punctualityBg    = punctuality === 'Late' ? '#fff3cd' : '#d4edda';
+
+        dateSections += `
+          <tr style="background-color: ${rowBg};">
+            <td style="padding: 9px 14px; border: 1px solid #dee2e6; font-size: 11pt; width: 40%;">${row.employeeName}</td>
+            <td style="padding: 9px 14px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center; width: 20%;">${row.checkIn}</td>
+            <td style="padding: 9px 14px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center; width: 20%;">${row.checkOut}</td>
+            <td style="padding: 9px 14px; border: 1px solid #dee2e6; font-size: 11pt; text-align: center; width: 20%;">
+              <span style="background-color: ${punctualityBg}; color: ${punctualityColor};
+                padding: 2px 10px; border-radius: 12px; font-weight: 600; font-size: 10pt;">
+                ${punctuality}
+              </span>
+            </td>
+          </tr>`;
+      });
+
+      // Spacer between date groups
+      dateSections += `
+        <tr><td colspan="4" style="padding: 6px; border: none; background-color: #f0f0f0;"></td></tr>`;
+    });
+  }
 
   const htmlContent = `
 <html xmlns:o='urn:schemas-microsoft-com:office:office'
@@ -289,6 +338,10 @@ export function generateAttendanceReport(rows, month, year) {
               <p style="margin: 2px 0 0; font-size: 18pt; font-weight: 700; color: #1a1a1a;">${rows.length}</p>
             </td>
             <td style="padding-right: 40px;">
+              <p style="margin: 0; font-size: 9pt; color: #7c2d12; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">Active Days</p>
+              <p style="margin: 2px 0 0; font-size: 18pt; font-weight: 700; color: #1a1a1a;">${groupOrder.length}</p>
+            </td>
+            <td style="padding-right: 40px;">
               <p style="margin: 0; font-size: 9pt; color: #7c2d12; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">On Time</p>
               <p style="margin: 2px 0 0; font-size: 18pt; font-weight: 700; color: #166534;">${onTimeCount}</p>
             </td>
@@ -306,26 +359,23 @@ export function generateAttendanceReport(rows, month, year) {
     </tr>
   </table>
 
-  <!-- Attendance table -->
-  <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 32px; border-collapse: collapse;">
+  <!-- Column headers -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 0; border-collapse: collapse;">
     <thead>
-      <tr style="background-color: #7c2d12;">
-        <th style="padding: 11px 12px; text-align: center; color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 13%;">DATE</th>
-        <th style="padding: 11px 12px; text-align: left;   color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 35%;">ATTACHEE NAME</th>
-        <th style="padding: 11px 12px; text-align: center; color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 16%;">CHECK-IN</th>
-        <th style="padding: 11px 12px; text-align: center; color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 16%;">CHECK-OUT</th>
-        <th style="padding: 11px 12px; text-align: center; color: #ffffff; font-size: 10pt; font-weight: 600; letter-spacing: 0.04em; border: 1px solid #6b2410; width: 20%;">PUNCTUALITY</th>
+      <tr style="background-color: #f0f0f0;">
+        <th style="padding: 9px 14px; text-align: left;   color: #555; font-size: 9pt; font-weight: 700; letter-spacing: 0.05em; border: 1px solid #dee2e6; width: 40%;">ATTACHEE NAME</th>
+        <th style="padding: 9px 14px; text-align: center; color: #555; font-size: 9pt; font-weight: 700; letter-spacing: 0.05em; border: 1px solid #dee2e6; width: 20%;">CHECK-IN</th>
+        <th style="padding: 9px 14px; text-align: center; color: #555; font-size: 9pt; font-weight: 700; letter-spacing: 0.05em; border: 1px solid #dee2e6; width: 20%;">CHECK-OUT</th>
+        <th style="padding: 9px 14px; text-align: center; color: #555; font-size: 9pt; font-weight: 700; letter-spacing: 0.05em; border: 1px solid #dee2e6; width: 20%;">PUNCTUALITY</th>
       </tr>
     </thead>
     <tbody>
-      ${rows.length === 0
-        ? `<tr><td colspan="5" style="padding: 24px; text-align: center; color: #888; font-size: 11pt; border: 1px solid #dee2e6;">No attendance records for this period.</td></tr>`
-        : tableRows}
+      ${dateSections}
     </tbody>
   </table>
 
   <!-- Footer -->
-  <table width="100%" cellpadding="0" cellspacing="0">
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 24px;">
     <tr>
       <td style="border-top: 1px solid #dee2e6; padding-top: 12px; text-align: center; color: #888; font-size: 9pt;">
         Attachee Attendance System &nbsp;·&nbsp; ${monthNames[month]} ${year} Report &nbsp;·&nbsp; Confidential

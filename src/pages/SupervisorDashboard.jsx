@@ -16,7 +16,7 @@ import { changeAdminPassword } from '../services/authService';
 import { getCurrentMonthYear, getTodayDateString } from '../utils/dateUtils';
 import { useChangePassword } from '../layouts/MainLayout';
 import { getSessionSupervisorName } from '../services/storageService';
-import { DEFAULT_CUTOFF_TIME } from '../data/constants';
+import { DEFAULT_CUTOFF_TIME, DEPARTMENTS } from '../data/constants';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -33,6 +33,7 @@ export default function SupervisorDashboard() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Present');
+  const [departmentFilter, setDepartmentFilter] = useState('');
   const [cutoffTime, setCutoffTime] = useState(DEFAULT_CUTOFF_TIME);
   const [stats, setStats] = useState({ totalEmployees: 0, presentToday: 0, absentToday: 0 });
   const [tableRows, setTableRows] = useState([]);
@@ -62,6 +63,14 @@ export default function SupervisorDashboard() {
   }, [month, year, search, cutoffTime]);
 
   const presentRows = tableRows.filter((r) => r.status === 'Present');
+  
+  const filteredRows = useMemo(() => {
+    let rows = tableRows;
+    if (departmentFilter) {
+      rows = rows.filter(r => r.department === departmentFilter);
+    }
+    return rows;
+  }, [tableRows, departmentFilter]);
 
   const handleChangePassword = async (oldPassword, newPassword) => {
     return await changeAdminPassword(oldPassword, newPassword);
@@ -158,12 +167,35 @@ export default function SupervisorDashboard() {
               ))}
             </select>
           </div>
+          <div className="department-selector">
+            <label htmlFor="department-select" style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginRight: '0.5rem' }}>
+              Department:
+            </label>
+            <select
+              id="department-select"
+              className="department-select"
+              value={departmentFilter}
+              onChange={e => setDepartmentFilter(e.target.value)}
+              style={{
+                padding: '0.5rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-input-text)',
+              }}
+            >
+              <option value="">All Departments</option>
+              {DEPARTMENTS.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div style={{ padding: '0 1.5rem 1rem' }}>
           <SearchBar value={search} onChange={setSearch} />
         </div>
         <AttendanceTable
-          rows={tableRows}
+          rows={filteredRows}
           statusFilter={statusFilter || null}
           cutoffTime={cutoffTime}
           onRowClick={(phone) => navigate(`/supervisor/attachee/${phone}`)}

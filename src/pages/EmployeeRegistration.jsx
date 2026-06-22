@@ -8,6 +8,7 @@ import { setSessionPhone } from '../services/storageService';
 import { checkLocationPermission } from '../services/locationService';
 import { delay } from '../utils/dateUtils';
 import { validateRegistration } from '../utils/validation';
+import { DEPARTMENTS } from '../data/constants';
 
 const initialForm = {
   fullName: '',
@@ -104,7 +105,7 @@ export default function EmployeeRegistration() {
       <header className="app-layout__header">
         <h1 className="app-layout__title">Attachee Registration</h1>
         <p className="app-layout__subtitle">
-          First-time setup — your phone number will be your unique ID
+          First-time setup — your name will be your unique ID
         </p>
       </header>
 
@@ -140,15 +141,38 @@ export default function EmployeeRegistration() {
               placeholder="555-010-1001"
               required
             />
-            <FormField
-              id="department"
-              label="Department"
-              value={form.department}
-              onChange={updateField('department')}
-              error={errors.department}
-              placeholder="Engineering"
-              required
-            />
+            <div className="form-field">
+              <label htmlFor="department">
+                Department *
+              </label>
+              <select
+                id="department"
+                value={form.department}
+                onChange={updateField('department')}
+                className={errors.department ? 'error' : ''}
+                style={{
+                  width: '100%',
+                  padding: '0.7rem 0.9rem',
+                  border: errors.department ? '1px solid var(--color-error)' : '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-input-text)',
+                  fontSize: '1rem',
+                }}
+              >
+                <option value="">Select Department</option>
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
+              {errors.department && (
+                <p className="form-field__error" role="alert">
+                  {errors.department}
+                </p>
+              )}
+            </div>
             <FormField
               id="email"
               label="Email"

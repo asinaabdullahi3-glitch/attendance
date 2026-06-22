@@ -16,4 +16,15 @@ export const ATTENDANCE_STATUS = {
   ABSENT: 'Absent',
 };
 
+export const DEPARTMENTS = [
+  'Technology',
+  'Creatives',
+  'Communication',
+  'Heritage',
+  'Admin',
+  'Human Resource',
+  'Finance',
+  'Entrepreneurship',
+];
+
 export const DEFAULT_CUTOFF_TIME = '09:00 AM';
