@@ -1,8 +1,10 @@
 // Admin authentication service
-// Password is stored in Firestore
+// Password is hashed using bcrypt before storing in Firestore
 
 import { db } from '../firebase';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import bcrypt from 'bcryptjs';
+import { logAuditEvent } from './auditService';
 
 const ADMIN_DOC_ID = 'admin_config';
 const ADMIN_PASSWORD_KEY = 'admin_authenticated';
@@ -25,6 +27,11 @@ export async function getAdminData() {
   }
 }
 
+export async function isSupervisorRegistered() {
+  const data = await getAdminData();
+  return !!data?.password;
+}
+ 
 /**
  * Get stored admin password from Firestore
  */
@@ -43,11 +50,13 @@ export async function getAdminName() {
 
 /**
  * Set admin data in Firestore (for registration)
+ * Password is hashed before storage
  */
 export async function setAdminData(name, password) {
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
     const docRef = doc(db, 'admin_config', ADMIN_DOC_ID);
-    await setDoc(docRef, { name, password });
+    await setDoc(docRef, { name, password: hashedPassword });
     return { success: true };
   } catch (error) {
     console.error('Error setting admin data:', error);
@@ -57,18 +66,20 @@ export async function setAdminData(name, password) {
 
 /**
  * Verify supervisor credentials (only password matters, name is for display)
+ * Uses bcrypt to compare hashed password
  */
 export async function verifySupervisorCredentials(name, password) {
   const data = await getAdminData();
   
-  // If no data exists, this is first-time login - save password
+  // If no data exists, this is first-time login - save name and password
   if (!data) {
-    const result = await setAdminPassword(password);
+    const result = await setAdminData(name || 'Supervisor', password);
     return { success: result.success, isFirstTime: true };
   }
   
-  // Verify only password matches (name doesn't matter)
-  if (data.password === password) {
+  // Verify password using bcrypt
+  const isMatch = await bcrypt.compare(password, data.password);
+  if (isMatch) {
     return { success: true, isFirstTime: false };
   }
   
@@ -77,12 +88,14 @@ export async function verifySupervisorCredentials(name, password) {
 
 /**
  * Set admin password in Firestore (for change password)
+ * Password is hashed before storage
  */
 export async function setAdminPassword(password) {
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
     const docRef = doc(db, 'admin_config', ADMIN_DOC_ID);
     const existingData = await getAdminData();
-    await setDoc(docRef, { ...existingData, password });
+    await setDoc(docRef, { ...existingData, password: hashedPassword });
     return { success: true };
   } catch (error) {
     console.error('Error setting admin password:', error);
@@ -104,11 +117,13 @@ export function clearAdminAuth() {
 
 /**
  * Clear admin data from Firestore (for reset/migration)
+ * This allows setting a fresh password on next login
  */
 export async function clearAdminData() {
   try {
     const docRef = doc(db, 'admin_config', ADMIN_DOC_ID);
     await deleteDoc(docRef);
+    clearAdminAuth(); // Also clear local storage
     return { success: true };
   } catch (error) {
     console.error('Error clearing admin data:', error);
@@ -122,11 +137,17 @@ export async function clearAdminData() {
 export async function changeAdminPassword(oldPassword, newPassword) {
   const storedPassword = await getAdminPassword();
   
-  // Verify old password matches
-  if (oldPassword !== storedPassword) {
+  // Verify old password matches using bcrypt
+  const isMatch = await bcrypt.compare(oldPassword, storedPassword);
+  if (!isMatch) {
     return { success: false, error: 'Current password is incorrect' };
   }
   
   // Set new password
-  return await setAdminPassword(newPassword);
+  const result = await setAdminPassword(newPassword);
+  if (result.success) {
+    // Log audit event
+    await logAuditEvent('password_changed', 'admin', ADMIN_DOC_ID, { action: 'password_change' }, 'admin');
+  }
+  return result;
 }

@@ -1,6 +1,8 @@
 import { ATTENDANCE_STATUS, DEFAULT_CUTOFF_TIME } from '../data/constants';
 import { formatTime, getTodayDateString, isSameMonth, parseTimeToMinutes } from '../utils/dateUtils';
 import { getEmployeeName, getAllEmployees } from './employeeService';
+import { logAuditEvent } from './auditService';
+import { handleError, withErrorHandling } from '../utils/errorHandler';
 import { db } from '../firebase';
 import { collection, doc, getDoc, getDocs, query, where, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 
@@ -28,13 +30,17 @@ export function classifyPunctuality(checkInTime, cutoffTime) {
  * @returns {Promise<Object[]>}
  */
 export async function getAttendanceByPhone(phone) {
-  const q = query(
-    collection(db, ATTENDANCE_COLLECTION),
-    where('phone', '==', phone)
-  );
-  const snap = await getDocs(q);
-  const records = snap.docs.map(d => d.data());
-  return records.sort((a, b) => b.date.localeCompare(a.date));
+  try {
+    const q = query(
+      collection(db, ATTENDANCE_COLLECTION),
+      where('phone', '==', phone)
+    );
+    const snap = await getDocs(q);
+    const records = snap.docs.map(d => d.data());
+    return records.sort((a, b) => b.date.localeCompare(a.date));
+  } catch (error) {
+    throw handleError(error);
+  }
 }
 
 // Migration function to move localStorage data to Firestore
@@ -71,75 +77,84 @@ export async function migrateLocalStorageToFirestore() {
 }
 
 export async function getTodayRecord(phone) {
-  const today = getTodayDateString();
-  const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
-  const docSnap = await getDoc(docRef);
-  
-  if (docSnap.exists()) {
-    return docSnap.data();
+  try {
+    const today = getTodayDateString();
+    const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+    return null;
+  } catch (error) {
+    throw handleError(error);
   }
-  return null;
 }
 
 export async function checkIn(phone) {
-  const today = getTodayDateString();
-  const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
-  const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists() && docSnap.data().checkIn) {
-    return { success: false, error: 'You have already checked in today' };
-  }
-
-  const record = {
-    phone,
-    date: today,
-    checkIn: formatTime(),
-    checkOut: null,
-    status: ATTENDANCE_STATUS.PRESENT,
-    createdAt: new Date().toISOString(),
-  };
-
   try {
+    const today = getTodayDateString();
+    const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists() && docSnap.data().checkIn) {
+      return { success: false, error: 'You have already checked in today' };
+    }
+
+    const record = {
+      phone,
+      date: today,
+      checkIn: formatTime(),
+      checkOut: null,
+      status: ATTENDANCE_STATUS.PRESENT,
+      createdAt: new Date().toISOString(),
+    };
+
     await setDoc(docRef, record);
+    // Log audit event
+    await logAuditEvent('check_in', 'employee', phone, { date: today, time: record.checkIn }, phone);
     return { success: true, record };
   } catch (error) {
-    console.error('Error checking in:', error);
-    return { success: false, error: 'Failed to check in. Please try again.' };
+    return handleError(error);
   }
 }
 
 export async function checkOut(phone) {
-  const today = getTodayDateString();
-  const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
-  const docSnap = await getDoc(docRef);
-
-  if (!docSnap.exists() || !docSnap.data().checkIn) {
-    return { success: false, error: 'You must check in before checking out' };
-  }
-
-  if (docSnap.data().checkOut) {
-    return { success: false, error: 'You have already checked out today' };
-  }
-
-  const updated = {
-    ...docSnap.data(),
-    checkOut: formatTime(),
-    status: ATTENDANCE_STATUS.PRESENT,
-    updatedAt: new Date().toISOString(),
-  };
-
   try {
+    const today = getTodayDateString();
+    const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists() || !docSnap.data().checkIn) {
+      return { success: false, error: 'You must check in before checking out' };
+    }
+
+    if (docSnap.data().checkOut) {
+      return { success: false, error: 'You have already checked out today' };
+    }
+
+    const updated = {
+      ...docSnap.data(),
+      checkOut: formatTime(),
+      status: ATTENDANCE_STATUS.PRESENT,
+      updatedAt: new Date().toISOString(),
+    };
+
     await setDoc(docRef, updated);
+    // Log audit event
+    await logAuditEvent('check_out', 'employee', phone, { date: today, checkIn: updated.checkIn, checkOut: updated.checkOut }, phone);
     return { success: true, record: updated };
   } catch (error) {
-    console.error('Error checking out:', error);
-    return { success: false, error: 'Failed to check out. Please try again.' };
+    return handleError(error);
   }
 }
 
-export async function getDashboardStats() {
+export async function getDashboardStats(departmentFilter = '') {
   const employees = await getAllEmployees();
   const today = getTodayDateString();
+  const departmentEmployees = departmentFilter
+    ? employees.filter((employee) => employee.department === departmentFilter)
+    : employees;
   
   // Query Firestore for today's attendance records
   const q = query(collection(db, ATTENDANCE_COLLECTION), where('date', '==', today));
@@ -152,11 +167,15 @@ export async function getDashboardStats() {
       presentPhones.add(data.phone);
     }
   });
-
+  
+  const presentDepartmentPhones = departmentFilter
+    ? departmentEmployees.filter((employee) => presentPhones.has(employee.phone)).length
+    : presentPhones.size;
+  
   return {
-    totalEmployees: employees.length,
-    presentToday: presentPhones.size,
-    absentToday: Math.max(0, employees.length - presentPhones.size),
+    totalEmployees: departmentEmployees.length,
+    presentToday: presentDepartmentPhones,
+    absentToday: Math.max(0, departmentEmployees.length - presentDepartmentPhones),
   };
 }
 
@@ -401,8 +420,84 @@ export function generateAttendanceReport(rows, month, year) {
 /**
  * Get present records for report (only those who checked in)
  */
-export async function getPresentRecords(month, year) {
-  const tableRows = await buildMonthlyAttendanceTable(month, year);
+export async function getPresentRecords(month, year, departmentFilter = '') {
+  const tableRows = await buildMonthlyAttendanceTable(month, year, '', DEFAULT_CUTOFF_TIME, departmentFilter);
   // Filter to only show records where attachee checked in (has checkIn time)
   return tableRows.filter((row) => row.checkIn && row.checkIn !== '—');
+}
+
+/**
+ * Get paginated attendance records
+ * @param {number} page - Page number (1-based)
+ * @param {number} pageSize - Number of records per page
+ * @param {string} searchQuery - Optional search query
+ * @param {string} departmentFilter - Optional department filter
+ * @returns {Promise<{records: Array, totalPages: number, currentPage: number, totalRecords: number}>}
+ */
+export async function getPaginatedAttendanceRecords(page = 1, pageSize = 50, searchQuery = '', departmentFilter = '') {
+  try {
+    const { month, year } = getCurrentMonthYear();
+    const allRecords = await buildMonthlyAttendanceTable(month, year, searchQuery, DEFAULT_CUTOFF_TIME, departmentFilter);
+    
+    const filteredRecords = allRecords;
+    
+    const totalRecords = filteredRecords.length;
+    const totalPages = Math.ceil(totalRecords / pageSize);
+    const currentPage = Math.min(page, totalPages || 1);
+    
+    // Calculate pagination
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedRecords = filteredRecords.slice(startIndex, endIndex);
+    
+    return {
+      records: paginatedRecords,
+      totalPages,
+      currentPage,
+      totalRecords,
+      pageSize,
+    };
+  } catch (error) {
+    throw handleError(error);
+  }
+}
+
+/**
+ * Generate a CSV report of attendance records
+ */
+export function generateAttendanceCSV(rows, month, year) {
+  const monthNames = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+  
+  // CSV header
+  const headers = ['Date', 'Employee Name', 'Department', 'Check-In', 'Check-Out', 'Status', 'Punctuality'];
+  
+  // CSV rows
+  const csvRows = rows.map(row => [
+    row.date,
+    `"${row.employeeName}"`,
+    `"${row.department}"`,
+    row.checkIn,
+    row.checkOut,
+    row.status,
+    classifyPunctuality(row.checkIn, DEFAULT_CUTOFF_TIME)
+  ]);
+  
+  // Combine header and rows
+  const csvContent = [
+    headers.join(','),
+    ...csvRows.map(row => row.join(','))
+  ].join('\n');
+  
+  // Create and download CSV file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `attendance_report_${year}_${String(month + 1).padStart(2, '0')}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }

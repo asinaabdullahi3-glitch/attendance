@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { findEmployeeByPhone } from '../services/employeeService';
 import { getAttendanceByPhone, classifyPunctuality } from '../services/attendanceService';
 import { parseTimeToMinutes, getCurrentMonthYear, formatDisplayDate } from '../utils/dateUtils';
@@ -7,6 +7,7 @@ import { DEFAULT_CUTOFF_TIME } from '../data/constants';
 import LoadingSpinner from '../components/LoadingSpinner';
 import DashboardCard from '../components/DashboardCard';
 import PresenceCalendar from '../components/PresenceCalendar';
+import SearchBar from '../components/SearchBar';
 
 export default function AttendeeProfile() {
   const { phone } = useParams();
@@ -15,6 +16,8 @@ export default function AttendeeProfile() {
   const [loading, setLoading] = useState(true);
   const [employee, setEmployee] = useState(null);
   const [records, setRecords] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -40,11 +43,43 @@ export default function AttendeeProfile() {
 
   const { month, year } = getCurrentMonthYear();
 
+  // Filter records based on search and status
+  const filteredRecords = useMemo(() => {
+    let filtered = records;
+    
+    // Apply status filter
+    if (statusFilter === 'present') {
+      filtered = filtered.filter(r => r.checkIn);
+    } else if (statusFilter === 'absent') {
+      filtered = filtered.filter(r => !r.checkIn);
+    } else if (statusFilter === 'late') {
+      filtered = filtered.filter(r => r.checkIn && classifyPunctuality(r.checkIn, DEFAULT_CUTOFF_TIME) === 'Late');
+    } else if (statusFilter === 'ontime') {
+      filtered = filtered.filter(r => r.checkIn && classifyPunctuality(r.checkIn, DEFAULT_CUTOFF_TIME) === 'On Time');
+    }
+    
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(r => 
+        r.date.toLowerCase().includes(query) ||
+        (r.checkIn && r.checkIn.toLowerCase().includes(query)) ||
+        (r.checkOut && r.checkOut.toLowerCase().includes(query))
+      );
+    }
+    
+    return filtered;
+  }, [records, searchQuery, statusFilter]);
+
   // Stats computed from records (not stored in state)
   const totalPresentDays = records.filter(r => r.checkIn).length;
 
   const onTimeCount = records.filter(
     r => r.checkIn && classifyPunctuality(r.checkIn, DEFAULT_CUTOFF_TIME) === 'On Time'
+  ).length;
+
+  const lateCount = records.filter(
+    r => r.checkIn && classifyPunctuality(r.checkIn, DEFAULT_CUTOFF_TIME) === 'Late'
   ).length;
 
   const punctualityRate =
@@ -89,6 +124,8 @@ export default function AttendeeProfile() {
 
           <div className="profile-stats">
             <DashboardCard label="Total Days Present" value={totalPresentDays} variant="primary" />
+            <DashboardCard label="On Time" value={onTimeCount} variant="success" />
+            <DashboardCard label="Late" value={lateCount} variant="warning" />
             <DashboardCard label="Punctuality Rate" value={punctualityRate} variant="success" />
             <DashboardCard label="Avg Hours Worked" value={avgHours} variant="primary" />
           </div>
@@ -100,8 +137,52 @@ export default function AttendeeProfile() {
 
           <div className="profile-section">
             <h2>Attendance History</h2>
-            {records.length === 0 ? (
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>No attendance records found.</p>
+            <div className="table-section__header">
+              <div className="table-filters">
+                <button
+                  type="button"
+                  className={`filter-chip ${statusFilter === 'all' ? 'filter-chip--active' : ''}`}
+                  onClick={() => setStatusFilter('all')}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={`filter-chip ${statusFilter === 'present' ? 'filter-chip--active' : ''}`}
+                  onClick={() => setStatusFilter('present')}
+                >
+                  Present
+                </button>
+                <button
+                  type="button"
+                  className={`filter-chip ${statusFilter === 'absent' ? 'filter-chip--active' : ''}`}
+                  onClick={() => setStatusFilter('absent')}
+                >
+                  Absent
+                </button>
+                <button
+                  type="button"
+                  className={`filter-chip ${statusFilter === 'ontime' ? 'filter-chip--active' : ''}`}
+                  onClick={() => setStatusFilter('ontime')}
+                >
+                  On Time
+                </button>
+                <button
+                  type="button"
+                  className={`filter-chip ${statusFilter === 'late' ? 'filter-chip--active' : ''}`}
+                  onClick={() => setStatusFilter('late')}
+                >
+                  Late
+                </button>
+              </div>
+            </div>
+            <div style={{ padding: '0 0 1rem' }}>
+              <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search by date, check-in, or check-out time" />
+            </div>
+            {filteredRecords.length === 0 ? (
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                {records.length === 0 ? 'No attendance records found.' : 'No records match your search.'}
+              </p>
             ) : (
               <div className="table-wrapper">
                 <table className="attendance-table">
@@ -114,7 +195,7 @@ export default function AttendeeProfile() {
                     </tr>
                   </thead>
                   <tbody>
-                    {records.map(r => (
+                    {filteredRecords.map(r => (
                       <tr key={r.date}>
                         <td>{formatDisplayDate(r.date)}</td>
                         <td>{r.checkIn || '—'}</td>

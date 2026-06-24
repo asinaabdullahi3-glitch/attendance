@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   SEEDED: 'at_sample_seeded',
   SESSION_ROLE: 'at_session_role',
   SESSION_PHONE: 'at_session_phone',
+  SESSION_DEPARTMENT: 'at_session_department',
 };
 
 export const ROLES = {

@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ROLES } from '../data/constants';
-import { setSessionRole, clearSessionPhone, setSessionSupervisorName, clearSessionSupervisorName } from '../services/storageService';
+import { ROLES, DEPARTMENTS } from '../data/constants';
+import {
+  setSessionRole,
+  clearSessionPhone,
+  setSessionSupervisorName,
+  clearSessionSupervisorName,
+  setSessionSupervisorDepartment,
+  clearSessionSupervisorDepartment,
+} from '../services/storageService';
 import { verifySupervisorCredentials, setAdminAuthenticated } from '../services/authService';
 import PasswordModal from '../components/PasswordModal';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -11,10 +18,12 @@ export default function LoginSelection() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [authError, setAuthError] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState('');
 
   const selectRole = async (role) => {
     clearSessionPhone();
     clearSessionSupervisorName();
+    clearSessionSupervisorDepartment();
     setSessionRole(role);
 
     if (role === ROLES.EMPLOYEE) {
@@ -22,6 +31,7 @@ export default function LoginSelection() {
     } else {
       setShowPasswordModal(true);
       setAuthError('');
+      setSelectedDepartment('');
     }
   };
 
@@ -75,6 +85,9 @@ export default function LoginSelection() {
         onAuthenticate={handlePasswordSubmit}
         error={authError}
         loading={verifying}
+        departments={DEPARTMENTS}
+        selectedDepartment={selectedDepartment}
+        onDepartmentChange={setSelectedDepartment}
       />
     </>
   );

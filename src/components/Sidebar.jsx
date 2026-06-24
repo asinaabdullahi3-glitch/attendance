@@ -1,6 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { ROLES } from '../data/constants';
-import { clearSessionRole, clearSessionPhone } from '../services/storageService';
+import {
+  clearSessionRole,
+  clearSessionPhone,
+  clearSessionSupervisorName,
+  clearSessionSupervisorDepartment,
+} from '../services/storageService';
 
 const employeeLinks = [
   { to: '/attachee/attendance', label: 'Attendance', icon: '⏱' },
@@ -18,6 +23,8 @@ export default function Sidebar({ role, open, onToggle, onClose, onChangePasswor
   const handleLogout = () => {
     clearSessionRole();
     clearSessionPhone();
+    clearSessionSupervisorName();
+    clearSessionSupervisorDepartment();
     navigate('/');
     onClose?.();
   };

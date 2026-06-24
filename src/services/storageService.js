@@ -38,6 +38,19 @@ export function setSessionSupervisorName(name) {
 export function clearSessionSupervisorName() {
   sessionStorage.removeItem('supervisor_name');
 }
+export function getSessionSupervisorDepartment() {
+  return sessionStorage.getItem(STORAGE_KEYS.SESSION_DEPARTMENT) || '';
+}
+
+export function setSessionSupervisorDepartment(department) {
+  if (department && department.trim()) {
+    sessionStorage.setItem(STORAGE_KEYS.SESSION_DEPARTMENT, department.trim());
+  }
+}
+
+export function clearSessionSupervisorDepartment() {
+  sessionStorage.removeItem(STORAGE_KEYS.SESSION_DEPARTMENT);
+}
 
 // Sample data seeding (keep using localStorage)
 export function isSampleSeeded() {

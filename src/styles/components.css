@@ -313,6 +313,12 @@
   gap: 1rem;
 }
 
+@media (min-width: 640px) {
+  .role-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .role-card {
   display: flex;
   align-items: center;
