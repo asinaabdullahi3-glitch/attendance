@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '../components/Alert';
 import FormField from '../components/FormField';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { setAdminData, isSupervisorRegistered } from '../services/authService';
+import { DEPARTMENTS } from '../data/constants';
 
 export default function AdminSetup() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [department, setDepartment] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState({});
@@ -17,7 +20,7 @@ export default function AdminSetup() {
   const [checkingSetup, setCheckingSetup] = useState(true);
   const [alreadySetup, setAlreadySetup] = useState(false);
 
-  useState(() => {
+  useEffect(() => {
     const checkIfSetup = async () => {
       const isRegistered = await isSupervisorRegistered();
       setCheckingSetup(false);
@@ -35,6 +38,16 @@ export default function AdminSetup() {
       newErrors.name = 'Name is required';
     } else if (name.trim().length < 2) {
       newErrors.name = 'Name must be at least 2 characters';
+    }
+
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!email.includes('@')) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (!department) {
+      newErrors.department = 'Department is required';
     }
 
     if (!password) {
@@ -63,7 +76,7 @@ export default function AdminSetup() {
     setLoading(true);
     setSubmitError('');
 
-    const result = await setAdminData(name.trim(), password);
+    const result = await setAdminData(name.trim(), password, email.trim(), department);
     setLoading(false);
 
     if (!result.success) {
@@ -153,6 +166,39 @@ export default function AdminSetup() {
             placeholder="Enter your full name"
             required
           />
+          <FormField
+            id="email"
+            label="Email Address"
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setErrors((prev) => ({ ...prev, email: '' }));
+              setSubmitError('');
+            }}
+            error={errors.email}
+            placeholder="Enter your email address"
+            required
+          />
+          <div className="form-field">
+            <label htmlFor="department">Department</label>
+            <select
+              id="department"
+              value={department}
+              onChange={(e) => {
+                setDepartment(e.target.value);
+                setErrors((prev) => ({ ...prev, department: '' }));
+                setSubmitError('');
+              }}
+              required
+            >
+              <option value="">Select department</option>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+            {errors.department && <p className="form-field__error">{errors.department}</p>}
+          </div>
           <FormField
             id="password"
             label="Password"

@@ -179,10 +179,12 @@ export async function getDashboardStats(departmentFilter = '') {
   };
 }
 
-export async function buildMonthlyAttendanceTable(month, year, searchQuery = '', cutoffTime = DEFAULT_CUTOFF_TIME) {
+export async function buildMonthlyAttendanceTable(month, year, searchQuery = '', cutoffTime = DEFAULT_CUTOFF_TIME, departmentFilter = '') {
   const employees = await getAllEmployees();
+  const departmentEmployees = departmentFilter
+    ? employees.filter((employee) => employee.department === departmentFilter)
+    : employees;
   const query = searchQuery.trim().toLowerCase();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const rows = [];
 
   try {
@@ -200,7 +202,7 @@ export async function buildMonthlyAttendanceTable(month, year, searchQuery = '',
     // Only create rows for present records
     records.forEach((record) => {
       if (record.checkIn) {
-        const emp = employees.find((e) => e.phone === record.phone);
+        const emp = departmentEmployees.find((e) => e.phone === record.phone);
         if (emp) {
           rows.push({
             phone: emp.phone,

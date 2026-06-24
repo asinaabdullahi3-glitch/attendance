@@ -6,6 +6,7 @@ import MainLayout from './layouts/MainLayout';
 import EmployeeAttendance from './pages/EmployeeAttendance';
 import EmployeeRegistration from './pages/EmployeeRegistration';
 import LoginSelection from './pages/LoginSelection';
+import AdminSetup from './pages/AdminSetup';
 import AttendeeProfile from './pages/AttendeeProfile';
 import SupervisorDashboard from './pages/SupervisorDashboard';
 import Unauthorized from './pages/Unauthorized';
@@ -33,6 +34,7 @@ export default function App() {
             </AuthLayout>
           }
         />
+        <Route path="/supervisor/register" element={<AdminSetup />} />
 
         <Route
           element={<MainLayout requiredRole={ROLES.EMPLOYEE} />}
