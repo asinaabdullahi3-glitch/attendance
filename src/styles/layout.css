@@ -1,13 +1,19 @@
+/* ═══════════════════════════════════════════════════════════════
+   App Shell Layout (sidebar + main content)
+   ═══════════════════════════════════════════════════════════════ */
+
 .app-layout {
   display: flex;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-layout__main {
   flex: 1;
   margin-left: var(--sidebar-width);
   padding: 1.5rem 2rem 2rem;
-  min-width: 0;
+  /* safe-area-inset-bottom for iPhones with home indicator */
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+  min-width: 0; /* prevents flex children overflowing */
 }
 
 .app-layout__header {
@@ -15,25 +21,33 @@
 }
 
 .app-layout__title {
-  font-size: 1.75rem;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
   font-weight: 700;
-  color: var(--color-secondary);
+  color: var(--color-text);
   letter-spacing: -0.02em;
 }
 
 .app-layout__subtitle {
   color: var(--color-text-muted);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   margin-top: 0.25rem;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Auth Layout (centered card, used for login / register)
+   ═══════════════════════════════════════════════════════════════ */
+
 .auth-layout {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
-  background: radial-gradient(circle at top, rgba(249, 115, 22, 0.16), transparent 30%),
+  /* horizontal padding + top/bottom safe-area padding */
+  padding: calc(1.5rem + env(safe-area-inset-top))
+           1rem
+           calc(1.5rem + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at top, rgba(249, 115, 22, 0.16), transparent 30%),
     linear-gradient(135deg, #1f1108 0%, #4c1d0c 45%, #7c2d12 100%);
 }
 
@@ -43,12 +57,13 @@
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: 2.5rem;
+  /* Reduce padding on small screens to maximise form width */
+  padding: clamp(1.25rem, 5vw, 2.5rem);
 }
 
 .auth-layout__brand {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
 }
 
 .auth-layout__logo {
@@ -66,19 +81,42 @@
 }
 
 .auth-layout__brand h1 {
-  font-size: 1.5rem;
-  color: var(--color-secondary);
+  font-size: clamp(1.2rem, 4vw, 1.5rem);
+  color: var(--color-text);
+  font-weight: 700;
 }
 
 .auth-layout__brand p {
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   margin-top: 0.35rem;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Mobile overrides (≤768px)
+   ═══════════════════════════════════════════════════════════════ */
+
 @media (max-width: 768px) {
   .app-layout__main {
+    /* No sidebar on mobile — sidebar overlays instead */
     margin-left: 0;
-    padding: 4.5rem 1rem 1.5rem;
+    /* Top padding clears the fixed toggle button (44px) + breathing room */
+    padding: calc(3.5rem + env(safe-area-inset-top)) 1rem calc(1.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Small mobile (≤480px) — tighten horizontal padding further
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+  .app-layout__main {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .auth-layout {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 }

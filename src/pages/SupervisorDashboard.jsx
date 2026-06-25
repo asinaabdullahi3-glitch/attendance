@@ -218,32 +218,21 @@ export default function SupervisorDashboard() {
           onRowClick={(phone) => navigate(`/supervisor/attachee/${phone}`)}
         />
         {pagination.totalPages > 1 && (
-          <div className="pagination-controls" style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            gap: '1rem', 
-            padding: '1.5rem',
-            borderTop: '1px solid var(--color-border)'
-          }}>
+          <div className="pagination-controls">
             <button
               type="button"
-              className="btn"
+              className="btn btn--ghost"
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              style={{ opacity: currentPage === 1 ? 0.5 : 1 }}
             >
               Previous
             </button>
-            <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-              Page {currentPage} of {pagination.totalPages} ({pagination.totalRecords} total records)
-            </span>
+            <span>Page {currentPage} of {pagination.totalPages} ({pagination.totalRecords} total)</span>
             <button
               type="button"
-              className="btn"
+              className="btn btn--ghost"
               onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
               disabled={currentPage === pagination.totalPages}
-              style={{ opacity: currentPage === pagination.totalPages ? 0.5 : 1 }}
             >
               Next
             </button>
