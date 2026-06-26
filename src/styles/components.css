@@ -1035,3 +1035,54 @@
   color: var(--color-text-muted);
   text-align: center;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME SWITCHER
+   ═══════════════════════════════════════════════════════════════ */
+.theme-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.theme-label {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.theme-options {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.theme-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  padding: 0;
+}
+
+.theme-button:hover {
+  border-color: var(--color-primary);
+  transform: scale(1.1);
+}
+
+.theme-button.active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.theme-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: block;
+}

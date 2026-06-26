@@ -1,3 +1,4 @@
+/* Default Theme (Orange/Brown) */
 :root {
   --color-primary: #c2410c;
   --color-primary-hover: #ea580c;
@@ -24,4 +25,44 @@
   --shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.1);
   --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
   --transition: 0.2s ease;
+}
+
+/* Blue Theme */
+[data-theme="blue"] {
+  --color-primary: #2563eb;
+  --color-primary-hover: #3b82f6;
+  --color-primary-light: #bfdbfe;
+  --color-secondary: #1e40af;
+  --color-accent: #60a5fa;
+  --color-success: #16a34a;
+  --color-success-bg: #dcfce7;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fee2e2;
+  --color-warning: #f59e0b;
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-border: #334155;
+  --color-text: #f8fafc;
+  --color-text-muted: #cbd5e1;
+  --color-input-text: #f8fafc;
+}
+
+/* Pink Theme */
+[data-theme="pink"] {
+  --color-primary: #db2777;
+  --color-primary-hover: #ec4899;
+  --color-primary-light: #fbcfe8;
+  --color-secondary: #9d174d;
+  --color-accent: #f472b6;
+  --color-success: #16a34a;
+  --color-success-bg: #dcfce7;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fee2e2;
+  --color-warning: #f59e0b;
+  --color-bg: #1a0f14;
+  --color-surface: #2d1a24;
+  --color-border: #5c2d3d;
+  --color-text: #fdf2f8;
+  --color-text-muted: #f9a8d4;
+  --color-input-text: #fdf2f8;
 }
