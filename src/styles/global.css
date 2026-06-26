@@ -8,9 +8,13 @@
   padding: 0;
 }
 
+/* Tell browsers this is a dark-themed app so native UI
+   (scrollbars, date pickers, selects) render dark too */
 html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
 }
 
 body {
@@ -18,11 +22,15 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   line-height: 1.5;
-  min-height: 100vh;
+  /* 100dvh: accounts for iOS/Android browser chrome (address bar)
+     which makes 100vh taller than the visible area */
+  min-height: 100dvh;
+  /* Prevent horizontal overflow on narrow viewports */
+  overflow-x: hidden;
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 a {
@@ -34,17 +42,17 @@ a:hover {
   text-decoration: underline;
 }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-}
-
+/* All interactive elements inherit the app font */
+button,
 input,
-select {
+select,
+textarea {
   font-family: inherit;
+  /* 16px minimum prevents iOS Safari from zooming on focus */
   font-size: 1rem;
 }
 
+/* Visually hidden but accessible */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -54,4 +62,10 @@ select {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   border: 0;
+}
+
+/* Focus ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

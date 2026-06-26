@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { formatDisplayDate } from '../utils/dateUtils';
 
 const MONTH_NAMES = [
@@ -13,6 +14,26 @@ function formatDateHeading(isoDate) {
     weekday: dayNames[d.getDay()],
     full: `${parseInt(day)} ${MONTH_NAMES[parseInt(month) - 1]} ${year}`,
   };
+}
+
+function NotAttendingNote({ reasonCategory, notes }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="not-attending-note">
+      <button
+        type="button"
+        className="not-attending-note__toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        title="View reason"
+      >
+        {reasonCategory || 'Other'} {open ? '▲' : '▼'}
+      </button>
+      {open && notes && (
+        <span className="not-attending-note__body">{notes}</span>
+      )}
+    </span>
+  );
 }
 
 export default function AttendanceTable({ rows, statusFilter, cutoffTime, onRowClick }) {
@@ -70,7 +91,10 @@ export default function AttendanceTable({ rows, statusFilter, cutoffTime, onRowC
                 </thead>
                 <tbody>
                   {groupRows.map((row) => (
-                    <tr key={`${row.phone}-${row.date}`}>
+                    <tr
+                      key={`${row.phone}-${row.date}`}
+                      className={row.status === 'Not Attending' ? 'row--not-attending' : ''}
+                    >
                       <td>
                         {onRowClick ? (
                           <button
@@ -87,20 +111,34 @@ export default function AttendanceTable({ rows, statusFilter, cutoffTime, onRowC
                       <td>{row.checkIn}</td>
                       <td>{row.checkOut}</td>
                       <td>
-                        <span
-                          className={`status-badge status-badge--${
-                            row.status === 'Present' ? 'present' : 'absent'
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                        {row.punctuality === 'Late' && (
-                          <span
-                            className="status-badge status-badge--late"
-                            style={{ marginLeft: '0.4rem' }}
-                          >
-                            Late
+                        {row.status === 'Not Attending' ? (
+                          <span className="status-badge status-badge--not-attending">
+                            Not Attending
+                            {row.reasonCategory && (
+                              <NotAttendingNote
+                                reasonCategory={row.reasonCategory}
+                                notes={row.notes}
+                              />
+                            )}
                           </span>
+                        ) : (
+                          <>
+                            <span
+                              className={`status-badge status-badge--${
+                                row.status === 'Present' ? 'present' : 'absent'
+                              }`}
+                            >
+                              {row.status}
+                            </span>
+                            {row.punctuality === 'Late' && (
+                              <span
+                                className="status-badge status-badge--late"
+                                style={{ marginLeft: '0.4rem' }}
+                              >
+                                Late
+                              </span>
+                            )}
+                          </>
                         )}
                       </td>
                     </tr>

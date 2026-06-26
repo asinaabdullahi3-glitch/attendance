@@ -58,16 +58,22 @@ export default function AnalyticsSection({ rows, month, year }) {
   // ── Pie chart: month punctuality overview ─────────────────────────
   let onTimeCount = 0;
   let lateCount = 0;
+  let notAttendingCount = 0;
 
   rows.forEach(row => {
-    const p = classifyPunctuality(row.checkIn, DEFAULT_CUTOFF_TIME);
-    if (p === 'On Time') onTimeCount++;
-    else if (p === 'Late') lateCount++;
+    if (row.status === 'Not Attending') {
+      notAttendingCount++;
+    } else {
+      const p = classifyPunctuality(row.checkIn, DEFAULT_CUTOFF_TIME);
+      if (p === 'On Time') onTimeCount++;
+      else if (p === 'Late') lateCount++;
+    }
   });
 
   const pieData = [
-    { name: 'On Time', value: onTimeCount, color: '#16a34a' },
-    { name: 'Late',    value: lateCount,   color: '#f59e0b' },
+    { name: 'On Time',      value: onTimeCount,      color: '#16a34a' },
+    { name: 'Late',         value: lateCount,         color: '#f59e0b' },
+    { name: 'Not Attending',value: notAttendingCount, color: '#b91c1c' },
   ].filter(d => d.value > 0);
 
   const totalCheckIns = onTimeCount + lateCount;
@@ -153,6 +159,11 @@ export default function AnalyticsSection({ rows, month, year }) {
             <span className="punctuality-pill punctuality-pill--late">
               ⚠ Late: {lateCount}
             </span>
+            {notAttendingCount > 0 && (
+              <span className="punctuality-pill punctuality-pill--absent">
+                ✗ Not Attending: {notAttendingCount}
+              </span>
+            )}
           </div>
         </div>
 

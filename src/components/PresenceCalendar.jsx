@@ -40,6 +40,8 @@ export default function PresenceCalendar({ records, month, year, cutoffTime }) {
       if (record?.checkIn) {
         const punctuality = classifyPunctuality(record.checkIn, cutoffTime);
         color = punctuality === 'Late' ? 'amber' : 'green';
+      } else if (record?.status === 'not_attending') {
+        color = 'red';
       } else {
         color = 'red';
       }

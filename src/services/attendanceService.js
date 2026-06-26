@@ -1,10 +1,10 @@
 import { ATTENDANCE_STATUS, DEFAULT_CUTOFF_TIME } from '../data/constants';
-import { formatTime, getTodayDateString, isSameMonth, parseTimeToMinutes } from '../utils/dateUtils';
+import { formatTime, getTodayDateString, isSameMonth, parseTimeToMinutes, getCurrentMonthYear } from '../utils/dateUtils';
 import { getEmployeeName, getAllEmployees } from './employeeService';
 import { logAuditEvent } from './auditService';
 import { handleError, withErrorHandling } from '../utils/errorHandler';
 import { db } from '../firebase';
-import { collection, doc, getDoc, getDocs, query, where, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, setDoc, addDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 
 const ATTENDANCE_COLLECTION = 'attendance';
 
@@ -149,6 +149,62 @@ export async function checkOut(phone) {
   }
 }
 
+/**
+ * Mark an attachee as not attending today with a reason.
+ * Writes a record with status: 'not_attending' to the same attendance collection.
+ */
+export async function markNotAttending(phone, reasonCategory, notes) {
+  try {
+    const today = getTodayDateString();
+    const docRef = doc(db, ATTENDANCE_COLLECTION, `${phone}_${today}`);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists() && docSnap.data().checkIn) {
+      return { success: false, error: 'You have already checked in today' };
+    }
+    if (docSnap.exists() && docSnap.data().status === 'not_attending') {
+      return { success: false, error: 'You have already marked yourself as not attending today' };
+    }
+
+    const record = {
+      phone,
+      date: today,
+      checkIn: null,
+      checkOut: null,
+      status: 'not_attending',
+      reasonCategory: reasonCategory || 'Other',
+      notes: notes || '',
+      createdAt: new Date().toISOString(),
+    };
+
+    await setDoc(docRef, record);
+    await logAuditEvent('marked_not_attending', 'employee', phone, { date: today, reasonCategory, notes }, phone);
+    return { success: true, record };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Subscribe to live attendance records for the supervisor dashboard.
+ * Calls onData(records) whenever Firestore updates.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToAttendanceRecords(onData, onError) {
+  const q = query(collection(db, ATTENDANCE_COLLECTION));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const records = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      onData(records);
+    },
+    (error) => {
+      console.error('Attendance snapshot error:', error);
+      if (onError) onError(error);
+    }
+  );
+}
+
 export async function getDashboardStats(departmentFilter = '') {
   const employees = await getAllEmployees();
   const today = getTodayDateString();
@@ -184,7 +240,7 @@ export async function buildMonthlyAttendanceTable(month, year, searchQuery = '',
   const departmentEmployees = departmentFilter
     ? employees.filter((employee) => employee.department === departmentFilter)
     : employees;
-  const query = searchQuery.trim().toLowerCase();
+  const searchLower = searchQuery.trim().toLowerCase();
   const rows = [];
 
   try {
@@ -199,22 +255,37 @@ export async function buildMonthlyAttendanceTable(month, year, searchQuery = '',
     console.log('Total attendance records:', records.length);
     console.log('Employees:', employees.length);
 
-    // Only create rows for present records
+    // Create rows for present AND not_attending records
     records.forEach((record) => {
+      const emp = departmentEmployees.find((e) => e.phone === record.phone);
+      if (!emp) return;
+
       if (record.checkIn) {
-        const emp = departmentEmployees.find((e) => e.phone === record.phone);
-        if (emp) {
-          rows.push({
-            phone: emp.phone,
-            employeeName: emp.fullName,
-            department: emp.department,
-            date: record.date,
-            checkIn: record.checkIn,
-            checkOut: record.checkOut || '—',
-            status: ATTENDANCE_STATUS.PRESENT,
-            punctuality: classifyPunctuality(record.checkIn, cutoffTime),
-          });
-        }
+        rows.push({
+          phone: emp.phone,
+          employeeName: emp.fullName,
+          department: emp.department,
+          date: record.date,
+          checkIn: record.checkIn,
+          checkOut: record.checkOut || '—',
+          status: ATTENDANCE_STATUS.PRESENT,
+          punctuality: classifyPunctuality(record.checkIn, cutoffTime),
+          reasonCategory: null,
+          notes: null,
+        });
+      } else if (record.status === 'not_attending') {
+        rows.push({
+          phone: emp.phone,
+          employeeName: emp.fullName,
+          department: emp.department,
+          date: record.date,
+          checkIn: '—',
+          checkOut: '—',
+          status: 'Not Attending',
+          punctuality: 'Absent',
+          reasonCategory: record.reasonCategory || 'Other',
+          notes: record.notes || '',
+        });
       }
     });
   } catch (error) {
@@ -227,12 +298,12 @@ export async function buildMonthlyAttendanceTable(month, year, searchQuery = '',
     return a.employeeName.localeCompare(b.employeeName);
   });
 
-  if (!query) return sorted;
+  if (!searchLower) return sorted;
 
   return sorted.filter(
     (row) =>
-      row.employeeName.toLowerCase().includes(query) ||
-      row.phone.includes(query.replace(/\D/g, ''))
+      row.employeeName.toLowerCase().includes(searchLower) ||
+      row.phone.includes(searchLower.replace(/\D/g, ''))
   );
 }
 
