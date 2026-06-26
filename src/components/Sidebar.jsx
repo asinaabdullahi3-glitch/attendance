@@ -7,6 +7,7 @@ import {
   clearSessionSupervisorDepartment,
 } from '../services/storageService';
 import { logoutSupervisor, clearAdminAuth } from '../services/authService';
+import ThemeSwitcher from './ThemeSwitcher';
 
 const employeeLinks = [
   { to: '/attachee/attendance', label: 'Attendance', icon: '⏱' },
@@ -77,6 +78,9 @@ export default function Sidebar({ role, open, onToggle, onClose, onChangePasswor
           ))}
         </nav>
         <div className="sidebar__footer">
+          <div className="sidebar__theme">
+            <ThemeSwitcher />
+          </div>
           <button
             type="button"
             className="btn btn--ghost btn--block"

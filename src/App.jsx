@@ -12,6 +12,7 @@ import SupervisorDashboard from './pages/SupervisorDashboard';
 import SupervisorAuth from './pages/SupervisorAuth';
 import Unauthorized from './pages/Unauthorized';
 import { initializeSampleData } from './services/seedService';
+import { ThemeProvider } from './utils/ThemeContext';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -22,8 +23,9 @@ export default function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
         <Route
           path="/"
           element={
@@ -68,5 +70,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }
