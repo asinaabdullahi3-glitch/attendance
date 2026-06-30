@@ -2,14 +2,18 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCl8isdMZb4fpBJ2V--lKSlk6mQTyxj5_c",
-  authDomain: "attendance-76af4.firebaseapp.com",
-  projectId: "attendance-76af4",
-  storageBucket: "attendance-76af4.firebasestorage.app",
-  messagingSenderId: "363313141369",
-  appId: "1:363313141369:web:38ea1f026b84c6775a26a8",
-  measurementId: "G-KWL3DWSHNJ"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
+
+if (!firebaseConfig.apiKey) {
+  throw new Error("Missing Firebase configuration. Add the values to .env at the project root.");
+}
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);

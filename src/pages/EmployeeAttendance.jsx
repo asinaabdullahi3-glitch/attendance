@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Alert from '../components/Alert';
 import FormField from '../components/FormField';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useNotification } from '../components/NotificationProvider';
 import {
   checkIn,
   checkOut,
@@ -91,6 +92,8 @@ export default function EmployeeAttendance() {
     setSuccess(`Welcome, ${found.fullName}! Identified by phone ${formatPhoneDisplay(found.phone)}.`);
   };
 
+  const { notify } = useNotification();
+
   const handleCheckIn = async () => {
     if (!employee) return;
     setActionLoading(true);
@@ -103,11 +106,13 @@ export default function EmployeeAttendance() {
 
     if (!result.success) {
       setError(result.error);
+      notify.error('Check-In Failed', result.error);
       return;
     }
 
     await refreshRecord(employee.phone);
     setSuccess(`Checked in successfully at ${result.record.checkIn}.`);
+    notify.success('Clock In Successful', `You checked in at ${result.record.checkIn}.`);
   };
 
   const handleCheckOut = async () => {
@@ -122,11 +127,13 @@ export default function EmployeeAttendance() {
 
     if (!result.success) {
       setError(result.error);
+      notify.error('Check-Out Failed', result.error);
       return;
     }
 
     await refreshRecord(employee.phone);
     setSuccess(`Checked out successfully at ${result.record.checkOut}.`);
+    notify.info('Clock Out Recorded', `You checked out at ${result.record.checkOut}.`);
   };
 
   const canCheckIn = employee && !todayRecord?.checkIn;
@@ -238,24 +245,33 @@ export default function EmployeeAttendance() {
             {actionLoading ? (
               <LoadingSpinner dark label="Updating attendance..." />
             ) : (
-              <div className="btn-group">
+              <>
+                <div className="btn-group">
+                  <button
+                    type="button"
+                    className="btn btn--success btn--lg"
+                    onClick={handleCheckIn}
+                    disabled={!canCheckIn}
+                  >
+                    Check In
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--primary btn--lg"
+                    onClick={handleCheckOut}
+                    disabled={!canCheckOut}
+                  >
+                    Check Out
+                  </button>
+                </div>
                 <button
                   type="button"
-                  className="btn btn--success btn--lg"
-                  onClick={handleCheckIn}
-                  disabled={!canCheckIn}
+                  className="btn btn--outline"
+                  onClick={() => notify.info('Notification Test', 'This is a quick attendance toast test.')}
                 >
-                  Check In
+                  Show Notification
                 </button>
-                <button
-                  type="button"
-                  className="btn btn--primary btn--lg"
-                  onClick={handleCheckOut}
-                  disabled={!canCheckOut}
-                >
-                  Check Out
-                </button>
-              </div>
+              </>
             )}
           </>
         )}
